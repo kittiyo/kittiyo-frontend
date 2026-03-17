@@ -20,12 +20,35 @@ async function request(path, options = {}) {
     headers,
   });
 
+  const contentType = response.headers.get("content-type") || "";
+  const isJson = contentType.includes("application/json");
+
   if (!response.ok) {
-    const payload = await response.json().catch(() => ({}));
-    throw new Error(payload.error || "Request failed");
+    if (isJson) {
+      const payload = await response.json().catch(() => ({}));
+      throw new Error(payload.error || payload.message || payload.detail || `Request failed (${response.status})`);
+    }
+
+    const text = await response.text().catch(() => "");
+    throw new Error(buildNonJsonApiError(response.status, text));
+  }
+
+  if (!isJson) {
+    const text = await response.text().catch(() => "");
+    throw new Error(buildNonJsonApiError(response.status, text));
   }
 
   return response.json();
+}
+
+function buildNonJsonApiError(status, text) {
+  const trimmed = (text || "").trim();
+
+  if (trimmed.startsWith("<!doctype html") || trimmed.startsWith("<html")) {
+    return `API returned HTML instead of JSON (${status}). Check your domain routing and /api proxy configuration.`;
+  }
+
+  return trimmed || `API returned a non-JSON response (${status}).`;
 }
 
 export function getAdminSnapshot() {
