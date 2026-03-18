@@ -614,14 +614,8 @@ async function requireAdminAuth(request, response, next) {
       return response.status(401).json({ error: "Invalid session" });
     }
 
-    const providers = [user.app_metadata?.provider, ...(user.app_metadata?.providers || [])].filter(Boolean);
-
-    if (!providers.includes("google")) {
-      return response.status(403).json({ error: "Google sign-in is required" });
-    }
-
     if (!isAllowedAdminEmail(user.email)) {
-      return response.status(403).json({ error: "This Google account is not allowed to access the admin panel" });
+      return response.status(403).json({ error: "This account is not allowed to access the admin panel" });
     }
 
     request.adminUser = {

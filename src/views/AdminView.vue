@@ -17,14 +17,16 @@
             <p class="eyebrow">Admin Access</p>
             <h1 class="page-title !text-4xl">Sign in to manage PicDrop</h1>
             <p class="max-w-2xl text-base leading-7 text-slate-600">
-              Admin access is protected with Google sign-in. Use it to create galleries, sync Drive folders,
-              upload headers, refresh common PINs, and review scanned people.
+              Admin access uses Supabase email and password authentication. Use an allowed admin account to create galleries,
+              sync Drive folders, upload headers, refresh common PINs, and review scanned people.
             </p>
           </div>
 
-          <div class="flex flex-wrap gap-3">
-            <Button label="Continue with Google" icon="pi pi-google" :loading="authBusy" @click="login" />
-          </div>
+          <form class="grid w-full max-w-xl gap-3" @submit.prevent="login">
+            <InputText v-model.trim="loginForm.email" type="email" autocomplete="email" placeholder="Admin email" />
+            <InputText v-model="loginForm.password" type="password" autocomplete="current-password" placeholder="Password" />
+            <Button label="Sign In" type="submit" :loading="authBusy" />
+          </form>
         </div>
       </template>
     </Card>
@@ -362,7 +364,7 @@ import {
   syncGalleryDrive,
   uploadGalleryHeaderImage,
 } from "../lib/api.js";
-import { getSession, getSupabaseBrowserClient, signInWithGoogle, signOut } from "../lib/auth.js";
+import { getSession, getSupabaseBrowserClient, signInWithPassword, signOut } from "../lib/auth.js";
 
 const route = useRoute();
 const router = useRouter();
@@ -398,6 +400,11 @@ const galleryForm = reactive({
   slug: "",
   driveLinks: [""],
   isPublic: true,
+});
+
+const loginForm = reactive({
+  email: "",
+  password: "",
 });
 
 const guestForm = reactive({
@@ -606,7 +613,7 @@ async function login() {
     authBusy.value = true;
     error.value = "";
     feedback.value = "";
-    await signInWithGoogle();
+    await signInWithPassword(loginForm.email.trim(), loginForm.password);
   } catch (loginError) {
     error.value = loginError.message;
   } finally {

@@ -2,7 +2,11 @@ import crypto from "node:crypto";
 import path from "node:path";
 import { google } from "googleapis";
 
-const DRIVE_SCOPE = "https://www.googleapis.com/auth/drive.readonly";
+const DRIVE_SCOPES = [
+  "https://www.googleapis.com/auth/drive.readonly",
+  "https://www.googleapis.com/auth/userinfo.email",
+  "https://www.googleapis.com/auth/userinfo.profile",
+];
 const STATE_TTL_MS = 10 * 60 * 1000;
 const UNSUPPORTED_IMAGE_EXTENSIONS = new Set(["heic", "heif"]);
 const UNSUPPORTED_IMAGE_MIME_TYPES = new Set(["image/heic", "image/heif", "image/heic-sequence", "image/heif-sequence"]);
@@ -97,7 +101,7 @@ export function createDriveAuthUrl({ galleryId, adminEmail }) {
     access_type: "offline",
     prompt: "consent",
     include_granted_scopes: true,
-    scope: [DRIVE_SCOPE],
+    scope: DRIVE_SCOPES,
     state,
   });
 }
@@ -119,10 +123,6 @@ export async function exchangeDriveCode(code, state) {
   });
   const userInfo = await oauth2.userinfo.get();
   const driveEmail = userInfo.data.email || "";
-
-  if (payload.adminEmail && driveEmail && payload.adminEmail.toLowerCase() !== driveEmail.toLowerCase()) {
-    throw new Error("Connect Drive using the same Google account you used to sign into admin.");
-  }
 
   return {
     galleryId: payload.galleryId,

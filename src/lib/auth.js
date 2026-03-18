@@ -69,13 +69,11 @@ export async function getAccessToken() {
   return session?.access_token || "";
 }
 
-export async function signInWithGoogle() {
+export async function signInWithPassword(email, password) {
   const client = getSupabaseBrowserClient();
-  const { data, error } = await client.auth.signInWithOAuth({
-    provider: "google",
-    options: {
-      redirectTo: `${window.location.origin}/admin`,
-    },
+  const { data, error } = await client.auth.signInWithPassword({
+    email,
+    password,
   });
 
   if (error) {
