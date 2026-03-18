@@ -532,7 +532,11 @@ onBeforeUnmount(() => {
 async function initializeAuth() {
   try {
     const client = getSupabaseBrowserClient();
-    const listener = client.auth.onAuthStateChange((_event, nextSession) => {
+    const listener = client.auth.onAuthStateChange((event, nextSession) => {
+      if (event === "INITIAL_SESSION") {
+        return;
+      }
+
       void handleSessionChange(nextSession);
     });
     authSubscription = listener.data.subscription;
@@ -592,10 +596,6 @@ async function handleDriveRedirectMessage() {
 
   if (status === "connected") {
     feedback.value = message ? `Drive connected: ${message}` : "Drive connected.";
-
-    if (session.value) {
-      await loadSnapshot();
-    }
   } else if (status === "error") {
     error.value = typeof message === "string" ? message : "Unable to connect Google Drive.";
   }
