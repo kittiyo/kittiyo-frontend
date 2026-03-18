@@ -91,6 +91,13 @@ export function uploadGalleryHeaderImage(galleryId, formData) {
   });
 }
 
+export function refreshGalleryPin(galleryId) {
+  return request(`/admin/galleries/${galleryId}/refresh-pin`, {
+    method: "POST",
+    auth: true,
+  });
+}
+
 export function createGuest(formData) {
   return request("/admin/guests", {
     method: "POST",
@@ -153,8 +160,15 @@ export function getPublicGallery(slug) {
   return request(`/public/galleries/${slug}`);
 }
 
-export function getPublicGalleryPhotos(slug) {
-  return request(`/public/galleries/${slug}/photos`);
+export function getPublicGalleryPhotos(slug, pin = "") {
+  const params = new URLSearchParams();
+
+  if (pin) {
+    params.set("pin", pin);
+  }
+
+  const suffix = params.size ? `?${params.toString()}` : "";
+  return request(`/public/galleries/${slug}/photos${suffix}`);
 }
 
 export function savePublicPersonProfile(slug, formData) {

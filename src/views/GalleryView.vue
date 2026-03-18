@@ -1,148 +1,230 @@
 <template>
-  <main class="shell gallery-shell">
+  <main class="app-shell space-y-6">
     <template v-if="isPersonalResults">
-      <section class="personal-stage">
-        <section class="personal-banner" :class="{ 'is-fallback': !gallery?.headerImageUrl }" :style="bannerStyle(gallery)">
-          <div v-if="!gallery?.headerImageUrl" class="personal-banner-fallback">
-            <h1>{{ gallery?.title || "Event Name" }}</h1>
+      <section class="space-y-6">
+        <section class="hero-banner" :style="bannerStyle(gallery)">
+          <div v-if="!gallery?.headerImageUrl" class="hero-banner-fallback">
+            <h1 class="page-title">{{ gallery?.title || "Event Name" }}</h1>
           </div>
+          <img
+            v-else
+            :src="gallery.headerImageUrl"
+            :alt="gallery.title || 'Gallery header'"
+            class="block h-64 w-full object-cover sm:h-80"
+          />
         </section>
 
-        <section class="panel person-profile-card">
-          <div class="person-profile-top">
-            <div class="person-profile-identity">
-              <div class="person-profile-avatar">
-                <img v-if="profilePhotoUrl" :src="profilePhotoUrl" :alt="profileForm.name || 'Profile photo'" />
-                <span v-else>{{ profileInitials }}</span>
-              </div>
-              <div>
-                <h2>{{ profileForm.name || "Add Name" }}</h2>
-                <p class="helper-copy">This profile photo is the scanned reference image so admins can review who scanned into the gallery.</p>
-              </div>
-            </div>
-            <div class="gallery-actions">
-              <RouterLink class="button button-secondary" :to="`/g/${slug}`">Scan Again</RouterLink>
-              <RouterLink class="button button-primary" :to="`/g/${slug}/all`">View All Photos</RouterLink>
-            </div>
-          </div>
+        <Card class="surface-panel">
+          <template #content>
+            <div class="space-y-6">
+              <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                <div class="flex items-center gap-4">
+                  <div class="grid h-16 w-16 place-items-center overflow-hidden rounded-full border border-slate-200 bg-sky-50 text-lg font-semibold text-sky-700">
+                    <img v-if="profilePhotoUrl" :src="profilePhotoUrl" :alt="profileForm.name || 'Profile photo'" class="h-full w-full object-cover" />
+                    <span v-else>{{ profileInitials }}</span>
+                  </div>
+                  <div class="space-y-1">
+                    <p class="eyebrow">Personal Gallery</p>
+                    <h2 class="section-title">{{ profileForm.name || "Add your profile" }}</h2>
+                    <p class="helper-copy">This scan image becomes the profile photo admins use to identify scanned people in the gallery.</p>
+                  </div>
+                </div>
 
-          <form class="person-profile-form" @submit.prevent="saveProfile">
-            <input v-model.trim="profileForm.name" type="text" required placeholder="Full name" />
-            <input v-model.trim="profileForm.email" type="email" placeholder="Email" />
-            <input v-model.trim="profileForm.phone" type="tel" placeholder="Phone" />
-            <input v-model.trim="profileForm.company" type="text" placeholder="Company / Team" />
-            <button class="button button-primary" type="submit" :disabled="savingProfile || !gallery">
-              {{ savingProfile ? "Updating..." : personalResult?.person?.id ? "Update" : "Create Profile" }}
-            </button>
-          </form>
-        </section>
+                <div class="flex flex-wrap gap-3">
+                  <RouterLink :to="`/g/${slug}`">
+                    <Button label="Scan Again" severity="secondary" outlined icon="pi pi-refresh" />
+                  </RouterLink>
+                  <RouterLink v-if="profileCreated" :to="`/g/${slug}/all`">
+                    <Button label="View All Photos" icon="pi pi-images" />
+                  </RouterLink>
+                </div>
+              </div>
+
+              <form v-if="!profileCreated" class="grid gap-4 md:grid-cols-2 xl:grid-cols-[1fr_1fr_1fr_1fr_auto]" @submit.prevent="saveProfile">
+                <InputText v-model.trim="profileForm.name" required placeholder="Full name" />
+                <InputText v-model.trim="profileForm.email" type="email" required placeholder="Email" />
+                <InputText v-model.trim="profileForm.phone" type="tel" placeholder="Phone" />
+                <InputText v-model.trim="profileForm.company" placeholder="Company / Team" />
+                <Button :label="savingProfile ? 'Saving...' : 'Create Profile'" :loading="savingProfile" type="submit" />
+              </form>
+
+              <div v-else class="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+                <div class="surface-muted p-4">
+                  <p class="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Name</p>
+                  <p class="mt-2 text-sm font-semibold text-slate-900">{{ personalResult?.person?.name || profileForm.name }}</p>
+                </div>
+                <div class="surface-muted p-4">
+                  <p class="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Email</p>
+                  <p class="mt-2 text-sm font-semibold text-slate-900">{{ personalResult?.person?.email || profileForm.email }}</p>
+                </div>
+                <div v-if="personalResult?.person?.phone || profileForm.phone" class="surface-muted p-4">
+                  <p class="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Phone</p>
+                  <p class="mt-2 text-sm font-semibold text-slate-900">{{ personalResult?.person?.phone || profileForm.phone }}</p>
+                </div>
+                <div v-if="personalResult?.person?.company || profileForm.company" class="surface-muted p-4">
+                  <p class="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Company</p>
+                  <p class="mt-2 text-sm font-semibold text-slate-900">{{ personalResult?.person?.company || profileForm.company }}</p>
+                </div>
+              </div>
+            </div>
+          </template>
+        </Card>
       </section>
     </template>
 
     <template v-else>
-      <section class="gallery-hero" :style="heroStyle(gallery)">
-        <div class="gallery-hero-top">
-          <div class="gallery-hero-copy">
-            <p class="gallery-kicker">Common Link</p>
-            <h1>{{ gallery?.title || "Gallery" }}</h1>
-            <p class="gallery-caption">
-              A clean gallery wall for the full event archive. Open the personal link if you want the selfie-based matching flow instead.
-            </p>
+      <section class="space-y-6">
+        <section class="surface-panel overflow-hidden">
+          <div v-if="gallery?.headerImageUrl" class="hero-banner">
+            <img :src="gallery.headerImageUrl" :alt="gallery.title || 'Gallery header'" class="block h-64 w-full object-cover sm:h-80" />
           </div>
-          <div class="gallery-actions">
-            <RouterLink class="button button-secondary" to="/">Overview</RouterLink>
-            <RouterLink class="button button-primary" :to="`/g/${slug}`">Personal Link</RouterLink>
-          </div>
-        </div>
+          <div class="space-y-6 p-6 lg:p-8" :style="heroStyle(gallery)">
+            <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+              <div class="space-y-3">
+                <p class="eyebrow">Common Link</p>
+                <h1 class="page-title !text-4xl">{{ gallery?.title || "Gallery" }}</h1>
+                <p class="max-w-2xl text-base leading-7 text-slate-600">Enter the 4-digit gallery PIN to unlock the event wall.</p>
+              </div>
 
-        <div class="gallery-stat-grid">
-          <article class="gallery-stat">
-            <strong>{{ displayPhotos.length }}</strong>
-            <span>Total Photos</span>
-          </article>
-          <article class="gallery-stat">
-            <strong>{{ photoYears }}</strong>
-            <span>Captured Year{{ photoYears === 1 ? "" : "s" }}</span>
-          </article>
-          <article class="gallery-stat">
-            <strong>{{ latestDate }}</strong>
-            <span>Latest Capture</span>
-          </article>
-        </div>
+              <div class="flex flex-wrap gap-3">
+                <RouterLink to="/">
+                  <Button label="Overview" severity="secondary" outlined icon="pi pi-home" />
+                </RouterLink>
+                <RouterLink :to="`/g/${slug}`">
+                  <Button label="Personal Link" icon="pi pi-camera" />
+                </RouterLink>
+              </div>
+            </div>
+
+            <div v-if="canShowPhotos" class="grid gap-3 md:grid-cols-3">
+              <div class="surface-muted p-4">
+                <p class="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Total Photos</p>
+                <p class="mt-2 text-2xl font-semibold text-slate-950">{{ displayPhotos.length }}</p>
+              </div>
+              <div class="surface-muted p-4">
+                <p class="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Captured Years</p>
+                <p class="mt-2 text-2xl font-semibold text-slate-950">{{ photoYears }}</p>
+              </div>
+              <div class="surface-muted p-4">
+                <p class="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Latest Capture</p>
+                <p class="mt-2 text-2xl font-semibold text-slate-950">{{ latestDate }}</p>
+              </div>
+            </div>
+          </div>
+        </section>
       </section>
     </template>
 
-    <section class="gallery-strip">
-      <div class="status-card">{{ status }}</div>
-    </section>
+    <div class="status-copy">{{ status }}</div>
 
-    <section class="panel gallery-grid-panel">
-      <div class="gallery-panel-title">
-        <div>
-          <p class="gallery-kicker">{{ isPersonalResults ? "Matched Gallery" : "Photo Wall" }}</p>
-          <h2>{{ isPersonalResults ? "Your Photos" : "All Images" }}</h2>
-        </div>
-        <div class="summary-metrics">
-          <span class="metric">{{ displayPhotos.length }} image{{ displayPhotos.length === 1 ? "" : "s" }}</span>
-          <span v-if="isPersonalResults && personalResult?.diagnostics?.bestScore != null" class="metric">
-            Best score {{ personalResult.diagnostics.bestScore }}
-          </span>
-        </div>
-      </div>
-
-      <div v-if="displayPhotos.length" class="gallery-results-grid">
-        <button
-          v-for="photo in displayPhotos"
-          :key="photo.id"
-          class="gallery-result-card"
-          type="button"
-          @click="openPhoto(photo)"
-        >
-          <img :src="photo.storageImageUrl || photo.thumbnailUrl" :alt="photo.title" />
-        </button>
-      </div>
-      <div v-else class="empty-state gallery-results-empty">{{ emptyMessage }}</div>
-    </section>
-
-    <Teleport to="body">
-      <div v-if="activePhoto" class="lightbox" @click.self="closePhoto">
-        <article class="lightbox-panel">
-          <button class="lightbox-close" type="button" @click="closePhoto" aria-label="Close image preview">Close</button>
-          <div class="lightbox-stage">
-            <img :src="activePhoto.storageImageUrl || activePhoto.thumbnailUrl" :alt="activePhoto.title" />
-          </div>
-          <div class="lightbox-details">
-            <div>
-              <p class="eyebrow">Photo Preview</p>
-              <h2>{{ activePhoto.title }}</h2>
+    <Card class="surface-panel">
+      <template #content>
+        <div class="space-y-6">
+          <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+            <div class="space-y-2">
+              <p class="eyebrow">{{ isPersonalResults ? "Matched Gallery" : "Photo Wall" }}</p>
+              <h2 class="section-title">{{ isPersonalResults ? "Your Photos" : "All Images" }}</h2>
             </div>
-            <p class="helper-copy">{{ formatDate(activePhoto.capturedAt) }}</p>
-            <p v-if="activePhoto.matchScore != null" class="helper-copy">
-              Match score: {{ activePhoto.matchScore }} ({{ activePhoto.matchConfidence }} confidence)
+
+            <div v-if="canShowPhotos" class="flex flex-wrap gap-2">
+              <Tag :value="`${displayPhotos.length} image${displayPhotos.length === 1 ? '' : 's'}`" severity="contrast" rounded />
+              <Tag
+                v-if="isPersonalResults && personalResult?.diagnostics?.bestScore != null"
+                :value="`Best score ${personalResult.diagnostics.bestScore}`"
+                severity="info"
+                rounded
+              />
+            </div>
+          </div>
+
+          <div v-if="canShowPhotos && displayPhotos.length" class="gallery-grid">
+            <button
+              v-for="photo in displayPhotos"
+              :key="photo.id"
+              type="button"
+              @click="openPhoto(photo)"
+            >
+              <img :src="photo.storageImageUrl || photo.thumbnailUrl" :alt="photo.title" />
+            </button>
+          </div>
+
+          <div v-else class="surface-muted grid min-h-48 place-items-center p-8 text-center text-sm text-slate-500">
+            {{ lockedOrEmptyMessage }}
+          </div>
+        </div>
+      </template>
+    </Card>
+
+    <Dialog
+      :visible="showCommonPinModal"
+      modal
+      :closable="false"
+      :draggable="false"
+      header="Gallery Access"
+      :style="{ width: 'min(92vw, 28rem)' }"
+    >
+      <div class="space-y-4">
+        <div class="space-y-2">
+          <p class="eyebrow">Common PIN</p>
+          <h2 class="section-title !text-2xl">Enter the 4-digit PIN</h2>
+          <p class="helper-copy">Ask the organizer for the gallery PIN. Images stay locked until it is correct.</p>
+        </div>
+
+        <form class="grid gap-3" @submit.prevent="unlockCommonGallery">
+          <InputText v-model.trim="commonPinInput" class="pin-input" type="text" inputmode="numeric" maxlength="4" placeholder="4-digit PIN" />
+          <Button :label="loadingCommonPhotos ? 'Unlocking...' : 'Open Gallery'" :loading="loadingCommonPhotos" type="submit" :disabled="commonPinInput.trim().length !== 4" />
+        </form>
+      </div>
+    </Dialog>
+
+    <Dialog
+      :visible="Boolean(activePhoto)"
+      modal
+      dismissableMask
+      :header="''"
+      :style="{ width: 'min(96vw, 88rem)' }"
+      :contentStyle="{ padding: '0' }"
+      @update:visible="closePhoto"
+    >
+      <div v-if="activePhoto" class="flex h-[86vh] max-h-[86vh] flex-col overflow-hidden">
+        <div class="flex-1 p-3 sm:p-4">
+          <div class="surface-muted flex h-full w-full items-center justify-center overflow-hidden p-2 sm:p-3">
+            <img
+              :src="activePhoto.storageImageUrl || activePhoto.thumbnailUrl"
+              :alt="activePhoto.title"
+              class="h-full w-full rounded-[20px] object-contain"
+            />
+          </div>
+        </div>
+
+        <div class="border-t border-slate-200 bg-white px-4 py-4 sm:px-6">
+          <div class="flex flex-wrap items-center justify-between gap-3">
+            <p class="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
+              {{ currentPhotoPositionLabel }}
             </p>
-            <div class="button-row">
-              <button class="button button-secondary" type="button" @click="closePhoto">Cancel</button>
-              <a
-                class="button button-primary"
-                :href="driveDownloadUrl(activePhoto)"
-                target="_blank"
-                rel="noreferrer"
-                download
-              >
-                Download Full Image
+            <div class="flex flex-wrap justify-end gap-3">
+              <Button label="Previous" severity="secondary" outlined icon="pi pi-angle-left" :disabled="!hasPreviousPhoto" @click="showPreviousPhoto" />
+              <Button label="Next" severity="secondary" outlined icon="pi pi-angle-right" iconPos="right" :disabled="!hasNextPhoto" @click="showNextPhoto" />
+              <a :href="driveDownloadUrl(activePhoto)" target="_blank" rel="noreferrer" download>
+                <Button label="Download Image" icon="pi pi-download" />
               </a>
             </div>
           </div>
-        </article>
+        </div>
       </div>
-    </Teleport>
+    </Dialog>
   </main>
 </template>
 
 <script setup>
-import { computed, onMounted, reactive, ref } from "vue";
+import { computed, onBeforeUnmount, onMounted, reactive, ref } from "vue";
 import { useRoute } from "vue-router";
-import { getPublicGalleryPhotos, savePublicPersonProfile } from "../lib/api.js";
+import Button from "primevue/button";
+import Card from "primevue/card";
+import Dialog from "primevue/dialog";
+import InputText from "primevue/inputtext";
+import Tag from "primevue/tag";
+import { getPublicGallery, getPublicGalleryPhotos, savePublicPersonProfile } from "../lib/api.js";
 
 const PERSONAL_MATCH_STORAGE_PREFIX = "picdrop-personal-match";
 
@@ -161,6 +243,9 @@ const emptyMessage = ref("No gallery images are available yet.");
 const personalResult = ref(null);
 const activePhoto = ref(null);
 const savingProfile = ref(false);
+const loadingCommonPhotos = ref(false);
+const commonPinInput = ref("");
+const commonPinVerified = ref(false);
 
 const profileForm = reactive({
   name: "",
@@ -170,7 +255,16 @@ const profileForm = reactive({
 });
 
 const isPersonalResults = computed(() => route.query.source === "personal" && Boolean(personalResult.value));
+const profileCreated = computed(() => Boolean(personalResult.value?.person?.id && personalResult.value?.person?.email));
+const canShowPhotos = computed(() => (isPersonalResults.value ? profileCreated.value : commonPinVerified.value));
+const showCommonPinModal = computed(() => !isPersonalResults.value && gallery.value && !commonPinVerified.value);
 const displayPhotos = computed(() => (isPersonalResults.value ? personalResult.value?.match?.photos || [] : photos.value));
+const currentPhotoIndex = computed(() => displayPhotos.value.findIndex((photo) => photo.id === activePhoto.value?.id));
+const hasPreviousPhoto = computed(() => currentPhotoIndex.value > 0);
+const hasNextPhoto = computed(() => currentPhotoIndex.value >= 0 && currentPhotoIndex.value < displayPhotos.value.length - 1);
+const currentPhotoPositionLabel = computed(() =>
+  currentPhotoIndex.value >= 0 ? `Image ${currentPhotoIndex.value + 1} of ${displayPhotos.value.length}` : "",
+);
 const photoYears = computed(() => {
   const years = new Set(
     displayPhotos.value
@@ -194,29 +288,40 @@ const profileInitials = computed(() => {
     .slice(0, 2);
   return parts.map((part) => part[0]?.toUpperCase() || "").join("") || "G";
 });
+const lockedOrEmptyMessage = computed(() => {
+  if (isPersonalResults.value && !profileCreated.value) {
+    return "Complete your profile to view your matched photos.";
+  }
+
+  if (!isPersonalResults.value && !commonPinVerified.value) {
+    return "Enter the 4-digit PIN to unlock this gallery.";
+  }
+
+  return emptyMessage.value;
+});
 
 onMounted(loadGallery);
+onMounted(() => window.addEventListener("keydown", handleKeydown));
+onBeforeUnmount(() => window.removeEventListener("keydown", handleKeydown));
 
 async function loadGallery() {
   try {
     restorePersonalMatch();
 
-    const response = await getPublicGalleryPhotos(props.slug);
-    gallery.value = response.gallery;
-    photos.value = response.photos;
+    const galleryResponse = await getPublicGallery(props.slug);
+    gallery.value = galleryResponse.gallery;
 
     if (isPersonalResults.value) {
       hydrateProfileForm();
-      status.value = personalResult.value?.status || "Your matched photos are ready.";
+      status.value = personalResult.value?.status || (profileCreated.value ? "Your matched photos are ready." : "Complete your profile to unlock your photos.");
       emptyMessage.value = personalResult.value?.status || "No confident match was found for your selfie.";
       return;
     }
 
-    status.value = `${response.photos.length} image${response.photos.length === 1 ? "" : "s"} available in this gallery.`;
-
-    if (!response.photos.length) {
-      emptyMessage.value = "This gallery does not have any mapped photos yet.";
-    }
+    commonPinInput.value = "";
+    commonPinVerified.value = false;
+    status.value = "Enter the 4-digit PIN to unlock this gallery.";
+    emptyMessage.value = "Enter the 4-digit PIN to unlock this gallery.";
   } catch (error) {
     status.value = error.message;
     emptyMessage.value = "This gallery is not available.";
@@ -251,6 +356,11 @@ async function saveProfile() {
     return;
   }
 
+  if (!profileForm.email.trim()) {
+    status.value = "Email is required.";
+    return;
+  }
+
   try {
     savingProfile.value = true;
     status.value = "Saving person profile...";
@@ -270,18 +380,53 @@ async function saveProfile() {
     }
 
     const response = await savePublicPersonProfile(props.slug, formData);
+
     personalResult.value = {
       ...personalResult.value,
       person: response.person,
-      status: `Profile saved for ${response.person.name}.`,
+      status: `Profile saved for ${response.person.name}. Your matched photos are ready.`,
     };
-    sessionStorage.setItem(matchStorageKey(props.slug), JSON.stringify(personalResult.value));
+    persistPersonalResult();
     hydrateProfileForm();
-    status.value = `Profile saved for ${response.person.name}. Admin can now see this scanned person in the gallery dashboard.`;
+    status.value = `Profile saved for ${response.person.name}. Your matched photos are ready.`;
   } catch (error) {
     status.value = error.message || "Unable to save the person profile.";
   } finally {
     savingProfile.value = false;
+  }
+}
+
+async function unlockCommonGallery() {
+  await fetchCommonPhotos(commonPinInput.value);
+}
+
+async function fetchCommonPhotos(pin, options = {}) {
+  const normalizedPin = `${pin || ""}`.trim();
+
+  if (normalizedPin.length !== 4) {
+    status.value = "Enter the 4-digit gallery PIN.";
+    return;
+  }
+
+  try {
+    loadingCommonPhotos.value = true;
+    const response = await getPublicGalleryPhotos(props.slug, normalizedPin);
+    photos.value = response.photos;
+    commonPinVerified.value = true;
+    status.value = `${response.photos.length} image${response.photos.length === 1 ? "" : "s"} available in this gallery.`;
+
+    if (!response.photos.length) {
+      emptyMessage.value = "This gallery does not have any mapped photos yet.";
+    }
+  } catch (error) {
+    commonPinVerified.value = false;
+    photos.value = [];
+    if (!options.silent) {
+      status.value = error.message || "Invalid gallery PIN.";
+    }
+    emptyMessage.value = "Enter the correct 4-digit PIN to unlock this gallery.";
+  } finally {
+    loadingCommonPhotos.value = false;
   }
 }
 
@@ -291,6 +436,44 @@ function openPhoto(photo) {
 
 function closePhoto() {
   activePhoto.value = null;
+}
+
+function showPreviousPhoto() {
+  if (!hasPreviousPhoto.value) {
+    return;
+  }
+
+  activePhoto.value = displayPhotos.value[currentPhotoIndex.value - 1] || activePhoto.value;
+}
+
+function showNextPhoto() {
+  if (!hasNextPhoto.value) {
+    return;
+  }
+
+  activePhoto.value = displayPhotos.value[currentPhotoIndex.value + 1] || activePhoto.value;
+}
+
+function handleKeydown(event) {
+  if (!activePhoto.value) {
+    return;
+  }
+
+  if (event.key === "Escape") {
+    closePhoto();
+  } else if (event.key === "ArrowLeft") {
+    showPreviousPhoto();
+  } else if (event.key === "ArrowRight") {
+    showNextPhoto();
+  }
+}
+
+function persistPersonalResult() {
+  if (!personalResult.value) {
+    return;
+  }
+
+  sessionStorage.setItem(matchStorageKey(props.slug), JSON.stringify(personalResult.value));
 }
 
 function driveDownloadUrl(photo) {
@@ -317,7 +500,7 @@ function heroStyle(galleryRecord) {
   }
 
   return {
-    backgroundImage: `linear-gradient(135deg, rgba(255, 255, 255, 0.9), rgba(236, 247, 255, 0.82)), url("${galleryRecord.headerImageUrl}")`,
+    backgroundImage: `linear-gradient(135deg, rgba(255, 255, 255, 0.94), rgba(236, 247, 255, 0.88)), url("${galleryRecord.headerImageUrl}")`,
     backgroundPosition: "center",
     backgroundSize: "cover",
   };

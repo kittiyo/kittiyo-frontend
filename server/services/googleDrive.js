@@ -248,5 +248,52 @@ function normalizeDriveDate(value) {
     return null;
   }
 
-  return value.slice(0, 10);
+  const trimmed = `${value}`.trim();
+
+  if (!trimmed) {
+    return null;
+  }
+
+  const exifLikeMatch = trimmed.match(/^(\d{4}):(\d{2}):(\d{2})(?:\s|$)/);
+
+  if (exifLikeMatch) {
+    return buildNormalizedDate(exifLikeMatch[1], exifLikeMatch[2], exifLikeMatch[3]);
+  }
+
+  const isoLikeMatch = trimmed.match(/^(\d{4})-(\d{2})-(\d{2})(?:[T\s]|$)/);
+
+  if (isoLikeMatch) {
+    return buildNormalizedDate(isoLikeMatch[1], isoLikeMatch[2], isoLikeMatch[3]);
+  }
+
+  const parsed = new Date(trimmed);
+
+  if (Number.isNaN(parsed.getTime())) {
+    return null;
+  }
+
+  return buildNormalizedDate(
+    String(parsed.getUTCFullYear()),
+    String(parsed.getUTCMonth() + 1).padStart(2, "0"),
+    String(parsed.getUTCDate()).padStart(2, "0"),
+  );
+}
+
+function buildNormalizedDate(year, month, day) {
+  const normalized = `${year}-${month}-${day}`;
+  const parsed = new Date(`${normalized}T00:00:00.000Z`);
+
+  if (Number.isNaN(parsed.getTime())) {
+    return null;
+  }
+
+  if (
+    parsed.getUTCFullYear() !== Number(year) ||
+    parsed.getUTCMonth() + 1 !== Number(month) ||
+    parsed.getUTCDate() !== Number(day)
+  ) {
+    return null;
+  }
+
+  return normalized;
 }

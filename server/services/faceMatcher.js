@@ -9,7 +9,7 @@ import { saveUpload } from "../store.js";
 import { extractFaceEncodings } from "./faceEncodingApi.js";
 
 const execFileAsync = promisify(execFile);
-const DEFAULT_FACE_DISTANCE_THRESHOLD = 0.6;
+const DEFAULT_FACE_DISTANCE_THRESHOLD = 0.51;
 const PREVIEW_MAX_SIZE = 1600;
 const PREVIEW_JPEG_QUALITY = 82;
 
@@ -126,6 +126,45 @@ export function findPhotoMatches(referenceEncodings, photos, photoFaces) {
       scannedRegionCount: scored.reduce((total, photo) => total + photo.regionCount, 0),
       bestScore: scored[0] ? round(scored[0].bestScore) : null,
     },
+  };
+}
+
+export function findBestPersonMatch(referenceEncoding, personEncodings) {
+  if (!Array.isArray(referenceEncoding) || !referenceEncoding.length) {
+    return null;
+  }
+
+  const bestByPersonId = new Map();
+
+  for (const candidate of personEncodings || []) {
+    const score = computeDistance(referenceEncoding, candidate.encoding);
+
+    if (!Number.isFinite(score)) {
+      continue;
+    }
+
+    const currentBest = bestByPersonId.get(candidate.personId);
+
+    if (!currentBest || score < currentBest.score) {
+      bestByPersonId.set(candidate.personId, {
+        personId: candidate.personId,
+        score,
+      });
+    }
+  }
+
+  const bestMatch = [...bestByPersonId.values()].sort((left, right) => left.score - right.score)[0];
+  const threshold = getFaceDistanceThreshold();
+
+  if (!bestMatch || bestMatch.score > threshold) {
+    return null;
+  }
+
+  return {
+    personId: bestMatch.personId,
+    score: round(bestMatch.score),
+    confidence: bestMatch.score <= 0.45 ? "high" : "medium",
+    threshold,
   };
 }
 

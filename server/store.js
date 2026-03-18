@@ -92,6 +92,10 @@ export async function upsertGallery(input) {
   };
 
   if (existingResult.data) {
+    if (!existingResult.data.common_access_pin) {
+      payload.common_access_pin = generateGalleryAccessPin();
+    }
+
     const updateResult = await supabase
       .from("galleries")
       .update(payload)
@@ -106,6 +110,7 @@ export async function upsertGallery(input) {
     .from("galleries")
     .insert({
       ...payload,
+      common_access_pin: generateGalleryAccessPin(),
       created_at: new Date().toISOString(),
     })
     .select("*")
@@ -125,6 +130,22 @@ export async function saveGalleryDriveConnection(input) {
       updated_at: new Date().toISOString(),
     })
     .eq("id", input.galleryId)
+    .select("*")
+    .single();
+
+  throwIfError(updateResult.error);
+  return await toGalleryRecord(updateResult.data);
+}
+
+export async function refreshGalleryAccessPin(galleryId) {
+  const supabase = getSupabaseAdmin();
+  const updateResult = await supabase
+    .from("galleries")
+    .update({
+      common_access_pin: generateGalleryAccessPin(),
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", galleryId)
     .select("*")
     .single();
 
@@ -334,6 +355,16 @@ export async function listPersonFaceEncodings(personId) {
     .select("*")
     .eq("person_id", personId)
     .order("created_at", { ascending: false });
+  throwIfError(result.error);
+  return (result.data || []).map(toPersonFaceEncodingRecord);
+}
+
+export async function listGalleryPersonEncodings(galleryId) {
+  const supabase = getSupabaseAdmin();
+  const result = await supabase
+    .from("person_face_encodings")
+    .select("*")
+    .eq("gallery_id", galleryId);
   throwIfError(result.error);
   return (result.data || []).map(toPersonFaceEncodingRecord);
 }
@@ -564,6 +595,7 @@ async function toGalleryRecord(row) {
     slug: row.slug,
     driveLink: row.drive_link,
     driveFolderId: row.drive_folder_id,
+    commonAccessPin: row.common_access_pin || "",
     headerImagePath: row.header_image_path || "",
     headerImageUrl,
     hasDriveConnection: Boolean(row.drive_refresh_token),
@@ -571,6 +603,10 @@ async function toGalleryRecord(row) {
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
+}
+
+function generateGalleryAccessPin() {
+  return `${Math.floor(1000 + Math.random() * 9000)}`;
 }
 
 async function toPhotoRecord(row, photoFaceCountByPhotoId) {

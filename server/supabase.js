@@ -58,3 +58,35 @@ export function isAllowedAdminEmail(email) {
 
   return allowedEmails.includes((email || "").toLowerCase());
 }
+
+export async function ensureOtpAuthUser(email, metadata = {}) {
+  const normalizedEmail = (email || "").trim().toLowerCase();
+
+  if (!normalizedEmail) {
+    throw new Error("Email is required to create an OTP auth user.");
+  }
+
+  const supabase = getSupabaseAdmin();
+  const { error } = await supabase.auth.admin.createUser({
+    email: normalizedEmail,
+    email_confirm: true,
+    user_metadata: metadata,
+  });
+
+  if (!error) {
+    return;
+  }
+
+  const message = (error.message || "").toLowerCase();
+
+  if (
+    message.includes("already registered") ||
+    message.includes("already been registered") ||
+    message.includes("already exists") ||
+    message.includes("user already exists")
+  ) {
+    return;
+  }
+
+  throw new Error(error.message);
+}

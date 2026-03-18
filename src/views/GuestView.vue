@@ -1,68 +1,123 @@
 <template>
-  <main class="shell personal-shell">
-    <section class="personal-stage">
-      <section class="personal-banner" :class="{ 'is-fallback': !gallery?.headerImageUrl }" :style="bannerStyle(gallery)">
-        <div v-if="!gallery?.headerImageUrl" class="personal-banner-fallback">
-          <h1>{{ gallery?.title || "Event Name" }}</h1>
-        </div>
-      </section>
-
-      <section class="panel personal-card">
-        <div class="personal-card-copy">
-          <div>
-            <p class="eyebrow">Face Scan</p>
-            <h2>Scan your face to find your photos</h2>
+  <main class="app-shell space-y-6">
+    <section class="grid gap-6 lg:grid-cols-[1.25fr_0.75fr]">
+      <div class="space-y-6">
+        <section
+          class="hero-banner"
+          :style="bannerStyle(gallery)"
+        >
+          <div v-if="!gallery?.headerImageUrl" class="hero-banner-fallback">
+            <h1 class="page-title">{{ gallery?.title || "Event Name" }}</h1>
           </div>
-          <p class="helper-copy">
-            By clicking "Scan My Face" you consent to the collection and use of your selfie and facial biometric data for the purpose of identifying and delivering your event photos. Your data may be processed by third-party AI service providers solely for this purpose.
-          </p>
-          <p class="helper-copy">I have read and accept the Terms of Service and Privacy Policy.</p>
-          <div class="button-row">
-            <button class="button button-primary" type="button" :disabled="authBusy || !gallery" @click="openScanModal">
-              {{ authBusy ? "Preparing..." : "Scan My Face" }}
-            </button>
-            <RouterLink class="button button-secondary" :to="`/g/${slug}/all`">Open Common Gallery</RouterLink>
-          </div>
-        </div>
-      </section>
-    </section>
+          <img
+            v-else
+            :src="gallery.headerImageUrl"
+            :alt="gallery.title || 'Gallery header'"
+            class="block h-64 w-full object-cover sm:h-80"
+          />
+        </section>
 
-    <section class="gallery-strip">
-      <div class="status-card">{{ status }}</div>
-    </section>
+        <Card class="surface-panel">
+          <template #content>
+            <div class="space-y-6">
+              <div class="space-y-3">
+                <p class="eyebrow">Personal Link</p>
+                <h2 class="section-title">Scan your face to find your photos</h2>
+                <p class="helper-copy">
+                  Capture a clear selfie to search the event gallery. If your profile already exists, PicDrop reuses it.
+                  If not, you will be asked to complete the profile before the gallery opens.
+                </p>
+                <p class="helper-copy">
+                  By continuing, you consent to using your selfie and facial biometric data solely for identification and event photo delivery.
+                </p>
+              </div>
 
-    <Teleport to="body">
-      <div v-if="scanModalOpen" class="scan-modal-backdrop" @click.self="closeScanModal">
-        <article class="scan-modal">
-          <div class="scan-modal-copy">
-            <p class="eyebrow">Live Capture</p>
-            <h2>Smile you are on camera</h2>
-            <p class="helper-copy">Center your face and capture a clear selfie.</p>
-          </div>
+              <div class="flex flex-wrap gap-3">
+                <Button :label="authBusy ? 'Preparing Camera' : 'Scan My Face'" icon="pi pi-camera" :loading="authBusy" @click="openScanModal" />
+                <RouterLink :to="`/g/${slug}/all`">
+                  <Button label="Open Common Gallery" severity="secondary" outlined icon="pi pi-images" />
+                </RouterLink>
+              </div>
 
-          <div class="scan-camera-frame">
-            <video v-show="cameraMode === 'live'" ref="videoRef" autoplay playsinline muted class="camera-preview"></video>
-            <img v-if="previewUrl" :src="previewUrl" alt="Captured selfie preview" class="camera-preview" />
-            <div v-if="cameraMode !== 'live' && !previewUrl" class="camera-placeholder scan-placeholder">
-              Camera preview will appear here.
+              <div class="status-copy">{{ status }}</div>
+            </div>
+          </template>
+        </Card>
+      </div>
+
+      <Card class="surface-panel">
+        <template #content>
+          <div class="space-y-5">
+            <div class="space-y-2">
+              <p class="eyebrow">How It Works</p>
+              <h2 class="section-title">One personal route</h2>
+            </div>
+
+            <div class="space-y-3">
+              <div class="surface-muted p-4">
+                <p class="text-sm font-semibold text-slate-900">1. Live camera capture</p>
+                <p class="helper-copy">The scan runs from your device camera with no manual upload step.</p>
+              </div>
+              <div class="surface-muted p-4">
+                <p class="text-sm font-semibold text-slate-900">2. Person lookup first</p>
+                <p class="helper-copy">Existing registered people are reused before creating a new profile draft.</p>
+              </div>
+              <div class="surface-muted p-4">
+                <p class="text-sm font-semibold text-slate-900">3. Private results gallery</p>
+                <p class="helper-copy">After profile completion, the matched images open as a downloadable gallery wall.</p>
+              </div>
             </div>
           </div>
+        </template>
+      </Card>
+    </section>
 
-          <div class="scan-modal-actions">
-            <button class="button button-secondary" type="button" :disabled="submitting" @click="closeScanModal">Cancel</button>
-            <button class="button button-primary" type="button" :disabled="cameraMode !== 'live' || submitting" @click="captureSelfie">
-              {{ submitting ? "Matching..." : "Capture Selfie" }}
-            </button>
+    <Dialog
+      v-model:visible="scanModalOpen"
+      modal
+      dismissableMask
+      header="Live Capture"
+      :style="{ width: 'min(92vw, 34rem)' }"
+      @hide="closeScanModal"
+    >
+      <div class="space-y-4">
+        <div class="space-y-2">
+          <p class="eyebrow">Camera</p>
+          <h2 class="section-title !text-2xl">Smile, you are on camera</h2>
+          <p class="helper-copy">Center your face, keep the frame steady, then capture.</p>
+        </div>
+
+        <div class="surface-muted overflow-hidden p-2">
+          <video v-show="cameraMode === 'live'" ref="videoRef" autoplay playsinline muted class="camera-preview"></video>
+          <img v-if="previewUrl" :src="previewUrl" alt="Captured selfie preview" class="camera-preview" />
+          <div v-if="cameraMode !== 'live' && !previewUrl" class="grid min-h-80 place-items-center rounded-[22px] bg-slate-100 text-sm text-slate-500">
+            Camera preview will appear here.
           </div>
-        </article>
+        </div>
+
+        <div v-if="submitting" class="flex items-center gap-3 rounded-2xl border border-sky-100 bg-sky-50 px-4 py-3 text-sm text-sky-900">
+          <ProgressSpinner strokeWidth="6" style="width: 1.5rem; height: 1.5rem" />
+          <span>Matching your selfie against the gallery photos...</span>
+        </div>
       </div>
-    </Teleport>
+
+      <template #footer>
+        <div class="flex w-full justify-end gap-3">
+          <Button label="Cancel" severity="secondary" outlined :disabled="submitting" @click="closeScanModal" />
+          <Button label="Capture Selfie" icon="pi pi-camera" :disabled="cameraMode !== 'live' || submitting" @click="captureSelfie" />
+        </div>
+      </template>
+    </Dialog>
   </main>
 </template>
 
 <script setup>
 import { onBeforeUnmount, onMounted, ref } from "vue";
 import { useRouter } from "vue-router";
+import Button from "primevue/button";
+import Card from "primevue/card";
+import Dialog from "primevue/dialog";
+import ProgressSpinner from "primevue/progressspinner";
 import { getPublicGallery, matchSelfie } from "../lib/api.js";
 
 const PERSONAL_MATCH_STORAGE_PREFIX = "picdrop-personal-match";
@@ -143,7 +198,7 @@ async function startCamera() {
     status.value = "Camera ready. Capture a selfie to continue.";
   } catch {
     cameraMode.value = "idle";
-    status.value = "Unable to access the camera. Upload a selfie instead.";
+    status.value = "Unable to access the camera. Please allow camera access and try again.";
   } finally {
     authBusy.value = false;
   }
@@ -169,17 +224,13 @@ async function captureSelfie() {
 
   stopCamera();
   cameraMode.value = "idle";
-  updatePreview(blob);
   selfieDataUrl.value = await blobToDataUrl(blob);
+  scanModalOpen.value = false;
+  revokePreviewUrl();
+  previewUrl.value = "";
 
   const formData = new FormData();
   formData.set("selfie", new File([blob], "selfie.jpg", { type: "image/jpeg" }));
-  const existingProfile = readStoredMatch();
-
-  if (existingProfile?.person?.id) {
-    formData.set("personId", existingProfile.person.id);
-  }
-
   await submitMatch(formData);
 }
 
@@ -195,8 +246,6 @@ async function submitMatch(formData) {
     } else {
       status.value = `${response.match.photoCount} photo${response.match.photoCount === 1 ? "" : "s"} matched your selfie. Opening your gallery...`;
     }
-    submitting.value = false;
-    closeScanModal();
     await router.push({
       name: "gallery",
       params: {
@@ -259,11 +308,6 @@ function stopCamera() {
 
   mediaStream.getTracks().forEach((track) => track.stop());
   mediaStream = undefined;
-}
-
-function updatePreview(fileOrBlob) {
-  revokePreviewUrl();
-  previewUrl.value = URL.createObjectURL(fileOrBlob);
 }
 
 function revokePreviewUrl() {

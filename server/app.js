@@ -9,6 +9,7 @@ import {
   createDriveSyncImage,
   extractPhotoFaceEncodings,
   extractPrimaryFaceEncoding,
+  findBestPersonMatch,
   findPhotoMatches,
   sanitizeDriveImage,
 } from "./services/faceMatcher.js";
@@ -21,13 +22,14 @@ import {
   isUnsupportedDriveImage,
   listDriveFolderImages,
 } from "./services/googleDrive.js";
-import { isAllowedAdminEmail, verifySupabaseAccessToken } from "./supabase.js";
+import { ensureOtpAuthUser, isAllowedAdminEmail, verifySupabaseAccessToken } from "./supabase.js";
 import {
   addPerson,
   addPersonFaceEncoding,
   addPhoto,
   buildDriveThumbnailUrl,
   updateGalleryHeaderImage,
+  refreshGalleryAccessPin,
   findGalleryById,
   findGalleryBySlug,
   findPhotoById,
@@ -36,6 +38,7 @@ import {
   deleteGallery as deleteGalleryRecord,
   getGalleryDriveConnection,
   listDriveSyncStatesByGallery,
+  listGalleryPersonEncodings,
   listPersonFaceEncodings,
   listPhotoFacesByGallery,
   parseDriveId,
@@ -140,6 +143,15 @@ export function createApp() {
         return response.status(404).json({ error: "Gallery not found" });
       }
 
+      response.json({ gallery });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.post("/api/admin/galleries/:galleryId/refresh-pin", async (request, response, next) => {
+    try {
+      const gallery = await refreshGalleryAccessPin(request.params.galleryId);
       response.json({ gallery });
     } catch (error) {
       next(error);
@@ -363,7 +375,7 @@ export function createApp() {
         return response.status(404).json({ error: "Gallery not found or public access is disabled" });
       }
 
-      response.json({ gallery });
+      response.json({ gallery: toPublicGallery(gallery) });
     } catch (error) {
       next(error);
     }
@@ -378,8 +390,14 @@ export function createApp() {
         return response.status(404).json({ error: "Gallery not found or public access is disabled" });
       }
 
+      const pin = normalizeTextField(request.query.pin);
+
+      if (!pin || pin !== gallery.commonAccessPin) {
+        return response.status(403).json({ error: "A valid 4-digit PIN is required to open this gallery." });
+      }
+
       const photos = store.photos.filter((photo) => photo.galleryId === gallery.id);
-      response.json({ gallery, photos });
+      response.json({ gallery: toPublicGallery(gallery), photos });
     } catch (error) {
       next(error);
     }
@@ -421,13 +439,31 @@ export function createApp() {
           company,
         });
       } else {
-        person = await addPerson({
-          galleryId: gallery.id,
-          name,
-          email,
-          phone,
-          company,
-        });
+        const detectedPerson = request.file
+          ? await detectExistingPersonForBuffer({
+              galleryId: gallery.id,
+              buffer: request.file.buffer,
+              mimeType: request.file.mimetype,
+            })
+          : null;
+
+        if (detectedPerson) {
+          person = await updatePersonProfile({
+            personId: detectedPerson.id,
+            name,
+            email,
+            phone,
+            company,
+          });
+        } else {
+          person = await addPerson({
+            galleryId: gallery.id,
+            name,
+            email,
+            phone,
+            company,
+          });
+        }
       }
 
       if (request.file) {
@@ -441,6 +477,15 @@ export function createApp() {
       }
 
       const updatedPerson = await findPersonById(person.id);
+
+      if (updatedPerson?.email) {
+        await ensureOtpAuthUser(updatedPerson.email, {
+          galleryId: gallery.id,
+          personId: updatedPerson.id,
+          name: updatedPerson.name,
+        });
+      }
+
       response.status(personId ? 200 : 201).json({ person: updatedPerson });
     } catch (error) {
       next(error);
@@ -462,16 +507,34 @@ export function createApp() {
 
       const requestedPersonId = normalizeTextField(request.body?.personId);
       const requestedPersonName = normalizeTextField(request.body?.personName);
-      const person = await resolveMatchPerson({
+      let person = await resolveMatchPerson({
         requestedPersonId,
         requestedPersonName,
         galleryId: gallery.id,
       });
+      let extractedSelfieEncoding = null;
+
+      if (!person) {
+        extractedSelfieEncoding = await extractPrimaryFaceEncoding(request.file.buffer, request.file.mimetype, { persistUpload: false });
+        person = await detectExistingPersonForEncoding({
+          galleryId: gallery.id,
+          encoding: extractedSelfieEncoding.encoding,
+        });
+
+        if (!person) {
+          person = await addPerson({
+            galleryId: gallery.id,
+            name: buildDraftPersonName(),
+          });
+        }
+      }
+
       const referenceEncodings = await getReferenceEncodingsForMatch({
         person,
         galleryId: gallery.id,
         buffer: request.file.buffer,
         mimeType: request.file.mimetype,
+        extractedSelfieEncoding,
       });
       const photos = store.photos.filter((photo) => photo.galleryId === gallery.id);
       const photoFaces = await listPhotoFacesByGallery(gallery.id);
@@ -828,8 +891,12 @@ async function resolveMatchPerson({ requestedPersonId, requestedPersonName, gall
   return null;
 }
 
-async function getReferenceEncodingsForMatch({ person, galleryId, buffer, mimeType }) {
+async function getReferenceEncodingsForMatch({ person, galleryId, buffer, mimeType, extractedSelfieEncoding }) {
   if (!person) {
+    if (extractedSelfieEncoding) {
+      return [extractedSelfieEncoding];
+    }
+
     const encoding = await extractPrimaryFaceEncoding(buffer, mimeType, { persistUpload: false });
     return [encoding];
   }
@@ -843,6 +910,25 @@ async function getReferenceEncodingsForMatch({ person, galleryId, buffer, mimeTy
   });
 
   return listPersonFaceEncodings(person.id);
+}
+
+async function detectExistingPersonForBuffer({ galleryId, buffer, mimeType }) {
+  const extractedFace = await extractPrimaryFaceEncoding(buffer, mimeType, { persistUpload: false });
+  return detectExistingPersonForEncoding({
+    galleryId,
+    encoding: extractedFace.encoding,
+  });
+}
+
+async function detectExistingPersonForEncoding({ galleryId, encoding }) {
+  const galleryPersonEncodings = await listGalleryPersonEncodings(galleryId);
+  const personMatch = findBestPersonMatch(encoding, galleryPersonEncodings);
+
+  if (!personMatch?.personId) {
+    return null;
+  }
+
+  return findPersonById(personMatch.personId);
 }
 
 async function saveSelfieEncodingForPerson({ person, galleryId, buffer, mimeType, source }) {
@@ -865,6 +951,26 @@ function normalizeTextField(value) {
   }
 
   return value.trim();
+}
+
+function buildDraftPersonName() {
+  return `Guest ${new Date().toISOString().slice(0, 19).replace("T", " ")}`;
+}
+
+function toPublicGallery(gallery) {
+  return {
+    id: gallery.id,
+    title: gallery.title,
+    slug: gallery.slug,
+    driveLink: gallery.driveLink,
+    driveFolderId: gallery.driveFolderId,
+    headerImagePath: gallery.headerImagePath,
+    headerImageUrl: gallery.headerImageUrl,
+    hasDriveConnection: gallery.hasDriveConnection,
+    isPublic: gallery.isPublic,
+    createdAt: gallery.createdAt,
+    updatedAt: gallery.updatedAt,
+  };
 }
 
 function isUnchangedDriveFile(existingPhoto, driveFile) {
