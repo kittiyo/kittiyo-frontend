@@ -292,6 +292,7 @@ function shouldPreemptivelyTranscodeJpeg(mimeType, buffer) {
 async function renderOptimizedJpeg(buffer, mimeType, maxSize, quality) {
   try {
     return await sharp(buffer)
+      .rotate()
       .resize(maxSize, maxSize, {
         fit: "inside",
         withoutEnlargement: true,
@@ -308,6 +309,7 @@ async function renderOptimizedJpeg(buffer, mimeType, maxSize, quality) {
 
     const transcodedBuffer = await transcodeImageWithSips(buffer, inferExtension(mimeType), "jpeg");
     return sharp(transcodedBuffer)
+      .rotate()
       .resize(maxSize, maxSize, {
         fit: "inside",
         withoutEnlargement: true,

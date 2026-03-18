@@ -366,6 +366,7 @@ const session = ref(null);
 const authReady = ref(false);
 const authBusy = ref(false);
 const loadingSnapshot = ref(false);
+const hasLoadedSnapshot = ref(false);
 const activeGalleryId = ref("");
 const activePhoto = ref(null);
 const galleryPanelOpen = ref(false);
@@ -425,9 +426,10 @@ const hasNextPhoto = computed(() => currentPhotoIndex.value >= 0 && currentPhoto
 const currentPhotoPositionLabel = computed(() =>
   currentPhotoIndex.value >= 0 ? `Image ${currentPhotoIndex.value + 1} of ${selectedGalleryPhotos.value.length}` : "",
 );
-const showPageLoader = computed(() => !authReady.value || (Boolean(session.value) && loadingSnapshot.value));
+const showPageLoader = computed(() => !authReady.value || (Boolean(session.value) && loadingSnapshot.value && !hasLoadedSnapshot.value));
 
 let authSubscription;
+let snapshotPromise = null;
 
 watch(
   () => galleryForm.title,
@@ -503,7 +505,7 @@ async function initializeAuth() {
         return;
       }
 
-      void handleSessionChange(nextSession);
+      void handleSessionChange(event, nextSession);
     });
     authSubscription = listener.data.subscription;
     session.value = await getSession();
@@ -521,12 +523,16 @@ async function initializeAuth() {
   }
 }
 
-async function handleSessionChange(nextSession) {
+async function handleSessionChange(event, nextSession) {
   session.value = nextSession;
   error.value = "";
 
   if (!nextSession) {
     clearSnapshot();
+    return;
+  }
+
+  if (event === "TOKEN_REFRESHED" || event === "USER_UPDATED") {
     return;
   }
 
@@ -537,19 +543,34 @@ function clearSnapshot() {
   galleries.value = [];
   photos.value = [];
   activePhoto.value = null;
+  hasLoadedSnapshot.value = false;
 }
 
 async function loadSnapshot() {
+  if (snapshotPromise) {
+    return snapshotPromise;
+  }
+
+  snapshotPromise = (async () => {
+    try {
+      loadingSnapshot.value = true;
+      error.value = "";
+      const snapshot = await getAdminSnapshot();
+      galleries.value = snapshot.galleries;
+      photos.value = snapshot.photos;
+      hasLoadedSnapshot.value = true;
+    } catch (loadError) {
+      error.value = loadError.message;
+    } finally {
+      loadingSnapshot.value = false;
+      snapshotPromise = null;
+    }
+  })();
+
   try {
-    loadingSnapshot.value = true;
-    error.value = "";
-    const snapshot = await getAdminSnapshot();
-    galleries.value = snapshot.galleries;
-    photos.value = snapshot.photos;
-  } catch (loadError) {
-    error.value = loadError.message;
+    await snapshotPromise;
   } finally {
-    loadingSnapshot.value = false;
+    snapshotPromise = null;
   }
 }
 
