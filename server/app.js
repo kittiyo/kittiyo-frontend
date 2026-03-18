@@ -725,14 +725,6 @@ async function syncGalleryDrive(gallery) {
 }
 
 async function syncDriveFile({ gallery, driveConnection, file, existingPhoto }) {
-  if (isUnsupportedDriveImage(file.name, file.mimeType)) {
-    return {
-      type: "skipped",
-      name: file.name,
-      reason: "HEIC/HEIF is not supported by the current image-processing build",
-    };
-  }
-
   if (isUnchangedDriveFile(existingPhoto, file)) {
     return {
       type: "unchanged",
@@ -786,6 +778,10 @@ async function syncDriveFile({ gallery, driveConnection, file, existingPhoto }) 
 
 async function buildSyncPreview({ file, refreshToken }) {
   try {
+    if (isUnsupportedDriveImage(file.name, file.mimeType)) {
+      throw new Error("HEIC/HEIF original requires thumbnail fallback");
+    }
+
     const sourceBuffer = await withSyncStage("download", file.name, () => downloadDriveFile(file.id, refreshToken));
     const sanitizedSource = await withSyncStage("sanitize", file.name, () => sanitizeDriveImage(sourceBuffer, file.mimeType));
     const preview = await withSyncStage("preview", file.name, () => createDriveSyncImage(sanitizedSource.buffer, sanitizedSource.mimeType));
