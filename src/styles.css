@@ -512,6 +512,108 @@ select[multiple] {
   padding-left: 0.9rem;
 }
 
+.personal-shell {
+  width: min(1080px, calc(100% - 2rem));
+}
+
+.personal-stage {
+  display: grid;
+  gap: 1rem;
+}
+
+.personal-banner,
+.personal-card {
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  background: linear-gradient(180deg, #eef6ff 0%, #f7fbff 100%);
+}
+
+.personal-banner {
+  min-height: 230px;
+  padding: 1.25rem;
+  display: grid;
+  align-items: end;
+}
+
+.personal-banner.is-fallback {
+  min-height: 260px;
+  padding: 1rem 1.2rem 1.6rem;
+}
+
+.personal-banner-fallback h1 {
+  margin: 0;
+  color: var(--ink);
+  font-size: clamp(2.6rem, 7vw, 4.4rem);
+  line-height: 0.95;
+  letter-spacing: -0.06em;
+}
+
+.personal-card {
+  padding: 1.15rem 1.2rem;
+}
+
+.personal-card-copy {
+  display: grid;
+  gap: 0.85rem;
+}
+
+.personal-card-copy h2,
+.scan-modal-copy h2 {
+  margin: 0;
+  letter-spacing: -0.05em;
+}
+
+.personal-card-copy .helper-copy,
+.scan-modal-copy .helper-copy {
+  margin: 0;
+  max-width: 640px;
+}
+
+.scan-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+  background: rgba(17, 24, 39, 0.34);
+}
+
+.scan-modal {
+  width: min(420px, 100%);
+  display: grid;
+  gap: 1rem;
+  padding: 1.15rem;
+  border-radius: 14px;
+  border: 1px solid var(--line);
+  background: #ffffff;
+}
+
+.scan-modal-copy {
+  display: grid;
+  gap: 0.4rem;
+}
+
+.scan-camera-frame {
+  min-height: 280px;
+  overflow: hidden;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  background: linear-gradient(180deg, rgba(18, 63, 138, 0.04), rgba(18, 63, 138, 0.08));
+}
+
+.scan-placeholder {
+  width: 100%;
+  color: var(--muted);
+}
+
+.scan-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
 .admin-shell {
   width: min(1440px, calc(100% - 2rem));
   display: grid;
@@ -814,6 +916,10 @@ select[multiple] {
     border-left: 0;
     border-top: 1px solid var(--line);
   }
+
+  .personal-banner {
+    min-height: 220px;
+  }
 }
 
 @media (max-width: 640px) {
@@ -834,5 +940,9 @@ select[multiple] {
   .admin-sidebar-actions {
     width: 100%;
     justify-items: stretch;
+  }
+
+  .scan-modal-actions {
+    justify-content: stretch;
   }
 }
