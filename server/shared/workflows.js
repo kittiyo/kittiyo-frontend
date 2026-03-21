@@ -26,10 +26,9 @@ import {
   saveGalleryImage,
   upsertDrivePhoto,
 } from "../store.js";
+import { FACE_MATCH_RPC_THRESHOLD, PERSON_MATCH_RPC_COUNT } from "../config/faceMatching.js";
 
 const DEFAULT_DRIVE_SYNC_CONCURRENCY = 3;
-const FACE_MATCH_RPC_THRESHOLD = 0.51;
-const PERSON_MATCH_RPC_COUNT = 250;
 
 export async function syncGalleryDriveById(galleryId) {
   const gallery = await getGalleryById(galleryId);

@@ -1,0 +1,3 @@
+export const FACE_MATCH_RPC_THRESHOLD = 0.45;
+export const FACE_MATCH_RPC_COUNT = 1000;
+export const PERSON_MATCH_RPC_COUNT = 250;
