@@ -2,8 +2,8 @@
   <main class="app-shell gallery-theme space-y-6" :style="themeStyle(personalAccentColor)">
     <PageLoader v-if="showPageLoader" />
 
-    <section class="grid gap-6 lg:grid-cols-[1.25fr_0.75fr]">
-      <div class="space-y-6">
+    <section class="p-4 flex justify-center">
+      <div class="space-y-6 max-w-3xl">
         <section
           class="hero-banner"
           :style="bannerStyle(gallery)"
@@ -25,13 +25,7 @@
               <div class="space-y-3">
                 <p class="eyebrow">Personal Link</p>
                 <h2 class="section-title">Scan your face to find your photos</h2>
-                <p class="helper-copy">
-                  You are consenting to the collection and use of your selfie and facial biometric data for the purpose of identifying and delivering your event photos. your data may be processed by third-party AI service providers solely for this purpose.
-
-                </p>
-                <p class="helper-copy">
-                 By clicking “Scan my Face”, you consent to using your selfie and facial biometric data solely for identification and event photo delivery.
-                </p>
+                <p class="helper-copy">By clicking "Scan My Face," you consent to using your selfie and facial biometric data to identify and deliver your event photos.</p>
               </div>
 
               <div class="flex flex-wrap gap-3">
@@ -47,31 +41,6 @@
         </Card>
       </div>
 
-      <Card class="surface-panel">
-        <template #content>
-          <div class="space-y-5">
-            <div class="space-y-2">
-              <p class="eyebrow">How It Works</p>
-              <h2 class="section-title">One personal route</h2>
-            </div>
-
-            <div class="space-y-3">
-              <div class="surface-muted p-4">
-                <p class="text-sm font-semibold text-slate-900">1. Live camera capture</p>
-                <p class="helper-copy">The scan runs from your device camera with no manual upload step.</p>
-              </div>
-              <div class="surface-muted p-4">
-                <p class="text-sm font-semibold text-slate-900">2. Person lookup first</p>
-                <p class="helper-copy">Existing registered people are reused before creating a new profile draft.</p>
-              </div>
-              <div class="surface-muted p-4">
-                <p class="text-sm font-semibold text-slate-900">3. Private results gallery</p>
-                <p class="helper-copy">After profile completion, the matched images open as a downloadable gallery wall.</p>
-              </div>
-            </div>
-          </div>
-        </template>
-      </Card>
     </section>
 
     <Dialog
@@ -86,7 +55,6 @@
         <div class="space-y-2">
           <p class="eyebrow">Camera</p>
           <h2 class="section-title !text-2xl">Smile, you are on camera</h2>
-          <p class="helper-copy">Center your face, keep the frame steady, then capture.</p>
         </div>
 
         <Message v-if="scanModalMessage" :severity="scanModalMessageSeverity" :closable="false">
@@ -262,22 +230,9 @@ async function submitMatch(formData) {
     submitting.value = true;
     status.value = "Matching your selfie against the gallery photos...";
     const response = await matchSelfie(props.slug, formData);
-    persistMatchPayload(response);
-
-    if (!response.match) {
-      status.value = buildNoMatchMessage(response);
-    } else {
-      status.value = `${response.match.photoCount} photo${response.match.photoCount === 1 ? "" : "s"} matched your selfie. Opening your gallery...`;
-    }
-    await router.push({
-      name: "gallery",
-      params: {
-        slug: props.slug,
-      },
-      query: {
-        source: "personal",
-      },
-    });
+    persistPendingMatch(response.job);
+    status.value = "Selfie received. Matching is now running in the background.";
+    await router.push(`/g/${props.slug}/all?source=personal&job=${encodeURIComponent(response.job.id)}`);
   } catch (error) {
     status.value = error.message || "Unable to process this selfie.";
   } finally {
@@ -285,17 +240,25 @@ async function submitMatch(formData) {
   }
 }
 
-function persistMatchPayload(response) {
+function persistPendingMatch(job) {
   const existing = readStoredMatch();
+  const existingPerson = existing?.person
+    ? {
+        ...existing.person,
+        // The next scan can replace the stored selfie object, which invalidates the old signed image URL.
+        referenceImageUrl: "",
+      }
+    : null;
   const payload = {
     gallery: gallery.value,
-    match: response.match,
-    diagnostics: response.diagnostics || null,
-    person: response.person || existing?.person || null,
+    jobId: job?.id || "",
+    jobStatus: job?.status || "queued",
+    pending: true,
+    match: null,
+    diagnostics: null,
+    person: existingPerson,
     selfieDataUrl: selfieDataUrl.value || existing?.selfieDataUrl || "",
-    status: response.match
-      ? `${response.match.photoCount} photo${response.match.photoCount === 1 ? "" : "s"} matched your selfie.`
-      : buildNoMatchMessage(response),
+    status: "Matching your selfie against the gallery photos...",
     savedAt: new Date().toISOString(),
   };
 

@@ -1,7 +1,5 @@
 import { getAccessToken } from "./auth.js";
 
-const API_ROOT = resolveApiRoot();
-
 async function request(path, options = {}) {
   const headers = new Headers(options.headers || {});
 
@@ -15,7 +13,7 @@ async function request(path, options = {}) {
     headers.set("Authorization", `Bearer ${accessToken}`);
   }
 
-  const response = await fetch(`${API_ROOT}${path}`, {
+  const response = await fetch(`${resolveApiRoot()}${path}`, {
     ...options,
     headers,
   });
@@ -42,7 +40,10 @@ async function request(path, options = {}) {
 }
 
 function resolveApiRoot() {
-  const configured = import.meta.env.VITE_API_ROOT?.trim();
+  const runtimeConfig = typeof useRuntimeConfig === "function" ? useRuntimeConfig() : null;
+  const configured =
+    runtimeConfig?.public?.apiRoot?.trim() ||
+    import.meta.env?.NUXT_PUBLIC_API_ROOT?.trim();
 
   if (!configured) {
     return "/api";
@@ -98,33 +99,6 @@ export function refreshGalleryPin(galleryId) {
   });
 }
 
-export function createGuest(formData) {
-  return request("/admin/guests", {
-    method: "POST",
-    auth: true,
-    body: formData,
-  });
-}
-
-export function createPerson(payload) {
-  return request("/admin/persons", {
-    method: "POST",
-    auth: true,
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(payload),
-  });
-}
-
-export function addPersonSelfie(personId, formData) {
-  return request(`/admin/persons/${personId}/selfies`, {
-    method: "POST",
-    auth: true,
-    body: formData,
-  });
-}
-
 export function createPhoto(payload) {
   return request("/admin/photos", {
     method: "POST",
@@ -150,6 +124,13 @@ export function syncGalleryDrive(galleryId) {
   });
 }
 
+export function getJob(jobId, options = {}) {
+  const scope = options.scope === "admin" ? "admin" : "public";
+  return request(`/${scope}/jobs/${jobId}`, {
+    auth: options.scope === "admin",
+  });
+}
+
 export function getDriveAuthUrl(galleryId) {
   return request(`/admin/galleries/${galleryId}/drive-auth-url`, {
     auth: true,
@@ -169,6 +150,10 @@ export function getPublicGalleryPhotos(slug, pin = "") {
 
   const suffix = params.size ? `?${params.toString()}` : "";
   return request(`/public/galleries/${slug}/photos${suffix}`);
+}
+
+export function getPublicPerson(slug, personId) {
+  return request(`/public/galleries/${slug}/people/${personId}`);
 }
 
 export function savePublicPersonProfile(slug, formData) {
