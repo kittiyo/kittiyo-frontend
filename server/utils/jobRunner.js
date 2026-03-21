@@ -26,11 +26,9 @@ import {
   saveSelfieEncodingForPerson,
   syncGalleryDriveById,
 } from "../shared/workflows.js";
+import { FACE_MATCH_RPC_COUNT, FACE_MATCH_RPC_THRESHOLD } from "../config/faceMatching.js";
 import { extractPrimaryFaceEncoding } from "../services/faceMatcher.js";
 import { ensureOtpAuthUser } from "../supabase.js";
-
-const FACE_MATCH_RPC_THRESHOLD = 0.45;
-const FACE_MATCH_RPC_COUNT = 1000;
 
 export async function runJobById(jobId) {
   const job = await findJobById(jobId);
